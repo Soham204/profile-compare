@@ -44,3 +44,37 @@ def test_parse_scalars_go_into_profile_section():
 def test_parse_accepts_str_path():
     profile, _ = parse(str(FIXTURES / "basic_a.xml"))
     assert "userPermissions" in profile
+
+
+def test_unknown_section_uses_first_child_as_key_and_warns_once():
+    profile, warnings = parse(FIXTURES / "unknown_section.xml")
+    assert profile["widgetAccesses"] == {
+        "Foo": {"enabled": "true"},
+        "Bar": {"enabled": "false"},
+    }
+    assert warnings == [
+        "Section 'widgetAccesses' is not in the registry; compared using guessed key 'widget'"
+    ]
+
+
+def test_duplicate_key_last_wins_and_warns():
+    profile, warnings = parse(FIXTURES / "duplicate_key.xml")
+    assert profile["userPermissions"]["ApiEnabled"] == {"enabled": "true"}
+    assert warnings == [
+        "Duplicate key 'ApiEnabled' in section 'userPermissions'; last occurrence wins"
+    ]
+
+
+def test_missing_file_raises():
+    with pytest.raises(ProfileParseError, match="File not found"):
+        parse(FIXTURES / "does_not_exist.xml")
+
+
+def test_malformed_xml_raises():
+    with pytest.raises(ProfileParseError, match="not well-formed XML"):
+        parse(FIXTURES / "malformed.xml")
+
+
+def test_wrong_root_element_raises():
+    with pytest.raises(ProfileParseError, match="expected <Profile>"):
+        parse(FIXTURES / "not_a_profile.xml")
